@@ -1563,9 +1563,11 @@ def copy(
     if tle_semantic.COMMON_IR_ENABLED:
         if is_async:
             raise ValueError("GPU CommonIR copy does not support explicit async transport")
-        if other is not None:
+        options = getattr(_semantic.builder, "options", None)
+        cuda_masked = mask is not None and getattr(options, "backend_name", None) == "cuda"
+        if other is not None and not cuda_masked:
             raise ValueError("GPU CommonIR copy does not yet support other")
-        if mask is not None:
+        if mask is not None and not cuda_masked:
             raise ValueError("GPU CommonIR copy does not yet support masks")
         descriptor = src if isinstance(
             src, tl.tensor_descriptor) else (dst if isinstance(dst, tl.tensor_descriptor) else None)
@@ -1590,6 +1592,10 @@ def copy(
             if tl._unwrap_if_constexpr(offsets) is not None:
                 raise ValueError(
                     "GPU CommonIR normal copy does not support offsets; offset the global pointers instead")
+            if cuda_masked:
+                tle_semantic.validate_common_ir_pointer_copy(src, dst, shape)
+                # tile.copy has no mask operand. Keep the masked load or store through local_ptr.
+                return normcopy(src, dst, shape, direction, mask, other, _semantic)
         return tle_semantic.copy(
             src,
             dst,
