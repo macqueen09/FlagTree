@@ -584,9 +584,7 @@ def alloc(
             # Use provided layout
             layout_handle = layout.to_ir(_semantic.builder)
 
-        cuda_alias = (tle_semantic.COMMON_IR_ENABLED and alias is not None
-                      and getattr(getattr(_semantic.builder, "options", None), "backend_name", None) == "cuda")
-        if tle_semantic.COMMON_IR_ENABLED and not cuda_alias:
+        if tle_semantic.COMMON_IR_ENABLED and alias is None:
             buffer = tle_semantic.alloc(
                 unwrapped_shape,
                 dtype,
@@ -603,7 +601,7 @@ def alloc(
         if storage == tle.smem:
             if alias is not None:
                 alias_ty = _semantic.builder.get_memdesc_type(storage_shape, elem_type, layout_handle, "smem")
-                source = tle_semantic.get_memdesc(alias, _semantic) if cuda_alias else alias.handle
+                source = tle_semantic.get_memdesc(alias, _semantic)
                 tensor_handle = _semantic.builder.create_memdesc_alias(alias_ty, source, alias_offset_bytes)
             else:
                 if init_value is None:
@@ -649,7 +647,7 @@ def alloc(
             raise ValueError(f"Storage type {storage} not yet supported")
 
         if use_mthreads_buffer:
-            return mthreads_buffer.create_buffered_tensor(
+            buffer = mthreads_buffer.create_buffered_tensor(
                 tensor_handle,
                 dtype,
                 unwrapped_shape,
@@ -657,10 +655,11 @@ def alloc(
                 layout,
                 _semantic,
             )
-        buffer = tle.buffered_tensor(tensor_handle, dtype, storage_shape, storage, layout, _semantic)
-        if cuda_alias:
+        else:
+            buffer = tle.buffered_tensor(tensor_handle, dtype, storage_shape, storage, layout, _semantic)
+        if tle_semantic.COMMON_IR_ENABLED:
             buffer.handle = _semantic.builder.create_tile_buffer_from_memdesc(buffer.type.to_ir(_semantic.builder),
-                                                                              tensor_handle)
+                                                                              buffer.handle)
         return buffer
 
     except Exception as e:
