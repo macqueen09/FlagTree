@@ -584,7 +584,9 @@ def alloc(
             # Use provided layout
             layout_handle = layout.to_ir(_semantic.builder)
 
-        if tle_semantic.COMMON_IR_ENABLED:
+        cuda_alias = (tle_semantic.COMMON_IR_ENABLED and alias is not None
+                      and getattr(getattr(_semantic.builder, "options", None), "backend_name", None) == "cuda")
+        if tle_semantic.COMMON_IR_ENABLED and not cuda_alias:
             buffer = tle_semantic.alloc(
                 unwrapped_shape,
                 dtype,
@@ -601,7 +603,8 @@ def alloc(
         if storage == tle.smem:
             if alias is not None:
                 alias_ty = _semantic.builder.get_memdesc_type(storage_shape, elem_type, layout_handle, "smem")
-                tensor_handle = _semantic.builder.create_memdesc_alias(alias_ty, alias.handle, alias_offset_bytes)
+                source = tle_semantic.get_memdesc(alias, _semantic) if cuda_alias else alias.handle
+                tensor_handle = _semantic.builder.create_memdesc_alias(alias_ty, source, alias_offset_bytes)
             else:
                 if init_value is None:
                     tensor_handle = _semantic.builder.create_local_alloc(storage_shape, elem_type, layout_handle)
@@ -654,7 +657,11 @@ def alloc(
                 layout,
                 _semantic,
             )
-        return tle.buffered_tensor(tensor_handle, dtype, storage_shape, storage, layout, _semantic)
+        buffer = tle.buffered_tensor(tensor_handle, dtype, storage_shape, storage, layout, _semantic)
+        if cuda_alias:
+            buffer.handle = _semantic.builder.create_tile_buffer_from_memdesc(buffer.type.to_ir(_semantic.builder),
+                                                                              tensor_handle)
+        return buffer
 
     except Exception as e:
         raise RuntimeError(f"Memory allocation failed: {str(e)}") from e
