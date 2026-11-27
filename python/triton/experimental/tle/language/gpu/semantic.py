@@ -285,11 +285,14 @@ def local_ptr(result_ir, buffer, indices, _semantic):
     return _semantic.builder.create_local_pointers(result_ir, memdesc, *handles)
 
 
-def get_memdesc(buffer, _semantic):
+def get_memdesc(buffer, _semantic, *, storage_view=False):
     """Bridge a CommonIR buffer to the descriptor type consumed by TLE pipe ops."""
     if not COMMON_IR_ENABLED:
         return buffer.handle
     result_type = buffer.type.to_memdesc_ir(_semantic.builder)
+    options = getattr(_semantic.builder, "options", None)
+    if storage_view and getattr(options, "backend_name", None) == "cuda":
+        return _semantic.builder.create_tile_storage_view(result_type, buffer.handle)
     return _semantic.builder.create_tile_get_memdesc(result_type, buffer.handle)
 
 

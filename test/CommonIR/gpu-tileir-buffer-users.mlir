@@ -42,7 +42,7 @@ module {
   // CHECK: ttg.local_load %[[VIEW]]
   tt.func public @alias_view() -> tensor<8xi16> {
     %buf = tile.alloc {space = 7 : i64, tle.gpu_layout = #shared} : <[32], i8, shared>
-    %base = builtin.unrealized_conversion_cast %buf : !tile.buf<[32], i8, shared> to !ttg.memdesc<32xi8, #shared, #smem, mutable>
+    %base = tile.to_tensor %buf : <[32], i8, shared> -> !ttg.memdesc<32xi8, #shared, #smem, mutable>
     %view = tle.memdesc_alias %base {offset_bytes = 16 : i64} : !ttg.memdesc<32xi8, #shared, #smem, mutable> -> !ttg.memdesc<8xi16, #shared, #smem, mutable>
     %alias = builtin.unrealized_conversion_cast %view : !ttg.memdesc<8xi16, #shared, #smem, mutable> to !tile.buf<[8], i16, shared>
     %value = tile.to_tensor %alias : <[8], i16, shared> -> tensor<8xi16>

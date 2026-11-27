@@ -601,7 +601,7 @@ def alloc(
         if storage == tle.smem:
             if alias is not None:
                 alias_ty = _semantic.builder.get_memdesc_type(storage_shape, elem_type, layout_handle, "smem")
-                source = tle_semantic.get_memdesc(alias, _semantic)
+                source = tle_semantic.get_memdesc(alias, _semantic, storage_view=True)
                 tensor_handle = _semantic.builder.create_memdesc_alias(alias_ty, source, alias_offset_bytes)
             else:
                 if init_value is None:
