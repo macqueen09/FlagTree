@@ -1592,10 +1592,6 @@ def copy(
             if tl._unwrap_if_constexpr(offsets) is not None:
                 raise ValueError(
                     "GPU CommonIR normal copy does not support offsets; offset the global pointers instead")
-            if cuda_masked:
-                tle_semantic.validate_common_ir_pointer_copy(src, dst, shape)
-                # tile.copy has no mask operand. Keep the masked load or store through local_ptr.
-                return normcopy(src, dst, shape, direction, mask, other, _semantic)
         return tle_semantic.copy(
             src,
             dst,
@@ -1603,6 +1599,8 @@ def copy(
             offsets if descriptor is not None else None,
             direction,
             _semantic,
+            mask=mask,
+            other=other,
             completion_barrier=barrier_slot,
             eviction_policy=eviction_policy,
             cache_policy=cache_policy,

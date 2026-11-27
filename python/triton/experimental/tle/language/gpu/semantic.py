@@ -178,14 +178,26 @@ def validate_common_ir_pointer_copy(src, dst, shape):
 
 
 def copy(src, dst, shape, offsets, direction, _semantic, completion_barrier=None, eviction_policy="",
-         cache_policy=None):
+         cache_policy=None, mask=None, other=None):
     descriptor = src if isinstance(src,
                                    tl.tensor_descriptor) else dst if isinstance(dst, tl.tensor_descriptor) else None
 
     if COMMON_IR_ENABLED:
         if descriptor is None:
             validate_common_ir_pointer_copy(src, dst, shape)
-            _semantic.builder.create_tile_copy(src.handle, dst.handle, False)
+            if mask is None:
+                _semantic.builder.create_tile_copy(src.handle, dst.handle, False)
+                return
+            buffer = dst if isinstance(dst, tle.buffered_tensor) else src
+            mask = _semantic.to_tensor(mask)
+            if mask.dtype != tl.int1:
+                raise ValueError("copy mask must have boolean elements")
+            mask = _semantic.broadcast_impl_shape(mask, list(buffer.type.shape))
+            fill = ir.value()
+            if other is not None:
+                value = _semantic.broadcast_impl_shape(_semantic.to_tensor(other), list(buffer.type.shape))
+                fill = value.to(buffer.dtype, _semantic=_semantic).handle
+            _semantic.builder.create_masked_tile_copy(src.handle, dst.handle, mask.handle, fill)
             return
         indices = _semantic._convert_to_ir_values(offsets, require_i64=False)
         buffer = dst if isinstance(dst, tle.buffered_tensor) else src

@@ -10,6 +10,7 @@ Tests core functionality of TLE module, including:
 """
 
 import pytest
+from triton._common_ir import ENABLED as COMMON_IR_ENABLED
 import torch
 import triton
 import inspect
@@ -249,8 +250,12 @@ class TestCopyFrontend:
             target=target,
         )
         ir = module.str_nodebug()
-        assert "arith.constant dense<0.000000e+00> : tensor<16xf32>" in ir
-        assert "tt.load" in ir
+        if COMMON_IR_ENABLED:
+            copy = next(line for line in ir.splitlines() if "tile.copy" in line)
+            assert " mask " in copy and " other " not in copy
+        else:
+            assert "arith.constant dense<0.000000e+00> : tensor<16xf32>" in ir
+            assert "tt.load" in ir
 
     @pytest.mark.skipif(
         not is_ampere_or_newer(),
@@ -303,7 +308,11 @@ class TestCopyFrontend:
         )
         ir = module.str_nodebug()
         assert "arith.constant dense<0xFF800000> : tensor<16xf32>" in ir
-        assert "tt.load" in ir
+        if COMMON_IR_ENABLED:
+            copy = next(line for line in ir.splitlines() if "tile.copy" in line)
+            assert " mask " in copy and " other " in copy
+        else:
+            assert "tt.load" in ir
 
     @pytest.mark.skipif(not _cuda_backend_available(), reason="requires cuda backend")
     @pytest.mark.skip_if_tle_unsupported("gpu.alloc", "gpu.copy")
@@ -321,7 +330,11 @@ class TestCopyFrontend:
         assert ("arith.constant dense<0xFC00> : tensor<16xf16>" in ir
                 or ("arith.constant dense<0xFF800000> : tensor<16xf32>" in ir and
                     ("arith.truncf" in ir or "tt.fp_to_fp" in ir)))
-        assert "tt.load" in ir
+        if COMMON_IR_ENABLED:
+            copy = next(line for line in ir.splitlines() if "tile.copy" in line)
+            assert " mask " in copy and " other " in copy
+        else:
+            assert "tt.load" in ir
 
     @pytest.mark.skipif(
         not is_ampere_or_newer(),
