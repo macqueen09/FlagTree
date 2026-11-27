@@ -835,6 +835,10 @@ class TestTLEDistributed:
             num_warps=4,
         )
         assert compiled.metadata.cluster_dims == (2, 1, 1)
+        from triton._common_ir import ENABLED
+        if ENABLED:
+            assert re.search(r"tile\.to_tensor .* -> !ttg\.memdesc", compiled.asm["source"])
+            assert "unrealized_conversion_cast" not in compiled.asm["source"]
         assert "tle.remote_pointers" in compiled.asm["ttgir"]
         assert "!tile.buf" not in compiled.asm["ttgir"]
         assert "unrealized_conversion_cast" not in compiled.asm["ttgir"]
